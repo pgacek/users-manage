@@ -33,7 +33,7 @@ else
 
 		for i in "${user_names[$array_pointer]}"; do
 			# check if user exist if yes - change passwd
-			getent passwd "${user_names[$i]}" > /dev/null 2&>1
+			getent passwd "${user_names[$i]}" > /dev/null 2>&1
 			if [[ "$?" -eq "0" ]]; then
 				echo "${user_names[$i]}"
 
