@@ -29,9 +29,8 @@ if [[ -z "${#user_names[@]}" ]]; then
 else
 	for (( user_no = 0; user_no <= $(( $total_users -1 )); user_no++ )) do
 		echo "$user_no"
-		array_pointer="${user_names[$user_no]}"
-
-		for i in "${user_names[$array_pointer]}"; do
+		for i in "${user_names[$user_no]}"; do
+			echo "$user_no"
 			# check if user exist if yes - change passwd
 			getent passwd "${user_names[$i]}" > /dev/null 2>&1
 			if [[ "$?" -eq "0" ]]; then
