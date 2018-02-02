@@ -21,10 +21,10 @@ IFS=' ' read -a user_names
 ### exit if no users provided
 ### or change password
 
-if [ -z "${user_names[*]}" ]; then
+if [[ -z "${user_names[@]}" ]]; then
 	echo -e ""${RED}"Nothing to do here"${NC}""
 else
-	for i in "${user_names[*]}"; do
+	for i in "${user_names[@]}"; do
 		echo "$i"
 	done
 fi
