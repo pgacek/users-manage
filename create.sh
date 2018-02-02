@@ -10,31 +10,31 @@ NC='\033[0m'
 ### check to run as root
 if [[ "$(id -u)" != "0" ]]; then
 	echo -e ""${RED}"Run as root"${NC}" \a" 1>&2
-	exit 1
+	exit 1;
 fi
 
 ### get user names - space as separator
 
 printf "Enter username(s) here: "
-IFS=' ' read user_names
+read user_names
 
 ### exit if no users provided
 
-if [[ -z "$user_names"  ]]; then
-	echo -e ""${RED}"Nothing to do here"${NC}""
+if [[ -z $user_names ]]; then
+	echo -e "${RED}Nothing to do here ${NC}"
 else
 	for i in $user_names; do
 		getent passwd $i > /dev/null 2>&1
 		if [[ "$?" -eq "0" ]]; then
-
 		# if no create and set passwd
 		else
 			useradd $i
-			echo -e ""${RED}"User "${GREEN}" $i "${RED}" created "${NC}""
+			echo -e "${RED}User${GREEN} $i ${RED}created ${NC}"
 		fi
 		#userdel -r "${user_names[$user_no]}"
 	done
 fi
+exit 0;
 
 
 
