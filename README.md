@@ -1,8 +1,9 @@
 # users-manage
 ***
-Simple script to create user(s) with password
+Simple script to create user(s) with password <br />
 
-Run script as root or with sudo(need to change users passwords) as argument provide the default password.
+Run script as root or with sudo(need to change users passwords) <br /> 
+As argument provide the default password. Only one argument it allowed
 
 Usage: **sudo ./create.sh \<password>**
 
