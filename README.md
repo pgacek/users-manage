@@ -5,5 +5,5 @@ Run script as root or with sudo(need to change users passwords) as argument prov
 
 Usage: sudo ./create.sh <password>
 
-If user does not exist - create it with password from argument
+If user does not exist - create it with password from argument \n
 If does - change password
