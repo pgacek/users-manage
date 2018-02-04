@@ -1,5 +1,5 @@
 # users-manage
-Simple script to create and users passwords
+Simple script to create user(s) with password
 
 Run script as root or with sudo(need to change users passwords) as argument provide the default password.
 
