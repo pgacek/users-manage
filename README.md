@@ -1,5 +1,11 @@
 # users-manage
 
+## **NOT FOR PRODUCTION
+## **IN DEVELOPMENT
+---
+
+
+
 Simple script to create user(s) with password <br />
 
 Run script as root or with sudo(need to change users passwords) <br /> 
