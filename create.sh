@@ -15,36 +15,55 @@ if [[ $(id -u) != "0" ]] || [[ $# != "1" ]]; then
 	exit 1;
 fi
 
+# "pi" in user name must be converted to "1" 
+# if uid is ok, check gid - must be the same
+
+uid_convert(){
+
+		new_uid=$(echo $1 | sed -e 's/pi/1/')
+		new_uid=$(echo $1 | sed -e 's/mi/2/')
+	
+}
+
+gid_convert(){
+	
+		new_gid=$(echo $1 | sed -e 's/pi/1/')
+		new_gid=$(echo $1 | sed -e 's/mi/2/')
+}
+
+
+gid_change(){
+	#check id of user's primary group 
+	#if the same as id of group named as user
+	#change group id
+	if [[ $(id -g $1) -eq $(grep ^$1 /etc/group | cut -d: -f3) ]] && [[ $(id -g $1) != $new_gid ]]; then
+		groupmod -g $new_gid $1
+		echo "ok"
+
+	#check id of user's primary group
+	#if primary group id is different than group named as user
+	#change primary group as secondary
+	#set secondary( named as user) as primary
+	#then change group id if needed
+	elif [[ $(id -g $1) != $(grep ^$1 /etc/group | cut -d: -f3) ]]; then
+		usermod -aG $(id -g $1) $1
+		usermod -g $(grep ^$1 /etc/group | cut -d: -f3) $1
+		echo "Switch primary group with supplementary"
+
+		if [[ $(id -g $1) -eq $(grep ^$1 /etc/group | cut -d: -f3) ]] && [[ $(id -g $1) != $new_gid ]]; then
+			groupmod -g $new_gid $1
+		fi
+	fi
+}
+
+
+
 ### get user names - space as separator
 
 echo -n -e "${RED}Enter username(s) here:${NC} "
 read user_names
 
 ### exit if no users provided
-
-# if [[ $user_names == pi* ]]; then
-# 	$pi_name=$user_names
-# 	echo $pi_name
-# fi
-
-uid_convert(){
-
-# "pi" in user name must be converted to "1" 
-# if uid is ok, check gid - must be the same
-# then use new uid and gid to create or modify user
-
-	if [[ $(id -u $1) != $(echo $1 | sed -e 's/pi/1/') ]]; then
-		new_uid=$(echo $1 | sed -e 's/pi/1/')
-	fi
-
-	if [[ $(id -g $1) != $(echo $1 | sed -e 's/pi/1/') ]]; then
-		new_gid=$new_uid
-	fi
-	
-}
-
-
-
 
 
 if [[ -z $user_names ]]; then
@@ -58,18 +77,35 @@ else
 		echo -e "${RED}User ${GREEN}$i${RED} exist. Changing password..${NC}"
 		echo "$1" | /bin/passwd $i --stdin > /dev/null 2>&1
 
-		uid_convert $user_names
+		uid_convert $i
+		if [[ $(id -u $i != $new_uid) ]]; then
+			usermod -u $new_uid $i
+		fi
 
-		#usermod -u $new_uid $user_names
-		echo $new_gid
+		gid_convert $i
+		grep $new_gid /etc/group > /dev/null 2>&1
+		if [[ "$?" -eq "0" ]]; then
+			
+
+
+
+		gid_change $1
+		
 
 
 		else
-			useradd $i
+
+			gid_convert $i
+			groupadd -g $new_gid $i
+
+			uid_convert $i
+			useradd -u $new_uid -g $new_gid $i
+
 			echo -e "${RED}User${GREEN} $i ${RED}created ${NC}"
 			echo $1 | /bin/passwd $i --stdin > /dev/null 2>&1
+
 		fi
-			userdel -r $i
+			#userdel -r $i
 
 
 
