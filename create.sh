@@ -20,42 +20,56 @@ fi
 
 uid_convert(){
 
-		new_uid=$(echo $1 | sed -e 's/pi/1/')
-		new_uid=$(echo $1 | sed -e 's/mi/2/')
+	new_uid=$(echo $1 | sed -e 's/pi/1/')
 	
 }
 
 gid_convert(){
-	
-		new_gid=$(echo $1 | sed -e 's/pi/1/')
-		new_gid=$(echo $1 | sed -e 's/mi/2/')
+
+	new_gid=$(echo $1 | sed -e 's/pi/1/')
+
 }
 
-
-gid_change(){
-	#check id of user's primary group 
-	#if the same as id of group named as user
-	#change group id
-	if [[ $(id -g $1) -eq $(grep ^$1 /etc/group | cut -d: -f3) ]] && [[ $(id -g $1) != $new_gid ]]; then
-		groupmod -g $new_gid $1
-		echo "ok"
-
-	#check id of user's primary group
-	#if primary group id is different than group named as user
-	#change primary group as secondary
-	#set secondary( named as user) as primary
-	#then change group id if needed
-	elif [[ $(id -g $1) != $(grep ^$1 /etc/group | cut -d: -f3) ]]; then
-		usermod -aG $(id -g $1) $1
-		usermod -g $(grep ^$1 /etc/group | cut -d: -f3) $1
-		echo "Switch primary group with supplementary"
-
-		if [[ $(id -g $1) -eq $(grep ^$1 /etc/group | cut -d: -f3) ]] && [[ $(id -g $1) != $new_gid ]]; then
-			groupmod -g $new_gid $1
-		fi
+group_switch(){
+	
+	if [[ $(id -g $1) -ne $(grep ^$1 /etc/group | cut -d: -f3) ]]; then
+		usermod -g $new_gid $1
 	fi
 }
 
+group_exist(){
+	#check if group exist by gid 
+
+	getent group $new_gid > /dev/null 2>&1
+	if [[ $? -ne 0 ]]; then
+	#if no check existence of group name
+		getent group $1 > /dev/null 2>&1
+
+		if [[ $? -ne 0 ]]; then
+	#if no, add group
+			groupadd -g $new_gid $1
+			echo "Add new group"
+
+
+		else
+	#if named group exist - exit
+			echo "Group exist"
+			groupmod -g $new_gid $1
+			
+		fi
+
+	else
+	#if gid is occupied, change gid
+		tmp_gid=$(grep ^$1 /etc/group | cut -d: -f3)
+		#let tmp_gid+=1
+		tmp_gid=$((tmp_gid+1))
+		groupmod -g $tmp_gid $1
+
+		echo "Change group id of $1 to $tmp_gid"
+	##### jak istnieje uzytkownik pi i ma poprawna grupe, 
+	#####to zmienia sie jej numer
+	fi
+}
 
 
 ### get user names - space as separator
@@ -77,29 +91,29 @@ else
 		echo -e "${RED}User ${GREEN}$i${RED} exist. Changing password..${NC}"
 		echo "$1" | /bin/passwd $i --stdin > /dev/null 2>&1
 
+		#create user
 		uid_convert $i
-		if [[ $(id -u $i != $new_uid) ]]; then
+		if [[ $(id -u $i) -ne $new_uid ]]; then
 			usermod -u $new_uid $i
 		fi
 
+		#change group of user
+
 		gid_convert $i
-		grep $new_gid /etc/group > /dev/null 2>&1
-		if [[ "$?" -eq "0" ]]; then
-			
+		group_switch $i
+		group_exist $i
 
 
-
-		gid_change $1
-		
 
 
 		else
 
-			gid_convert $i
-			groupadd -g $new_gid $i
+		gid_convert $i
+		group_exist $i
 
-			uid_convert $i
-			useradd -u $new_uid -g $new_gid $i
+		uid_convert $i
+
+		useradd -u $new_uid -g $new_gid $i
 
 			echo -e "${RED}User${GREEN} $i ${RED}created ${NC}"
 			echo $1 | /bin/passwd $i --stdin > /dev/null 2>&1
@@ -112,3 +126,4 @@ else
 
 	done
 fi
+
