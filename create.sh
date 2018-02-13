@@ -16,60 +16,64 @@ if [[ $(id -u) != "0" ]] || [[ $# != "1" ]]; then
 fi
 
 # "pi" in user name must be converted to "1" 
-# if uid is ok, check gid - must be the same
-
-uid_convert(){
-
-	new_uid=$(echo $1 | sed -e 's/pi/1/')
-	
+id_convert(){
+	new_id=$(echo $1 | sed -e 's/pi/1/')
 }
 
-gid_convert(){
-
-	new_gid=$(echo $1 | sed -e 's/pi/1/')
-
-}
-
-group_switch(){
-	
-	if [[ $(id -g $1) -ne $(grep ^$1 /etc/group | cut -d: -f3) ]]; then
-		usermod -g $new_gid $1
-	fi
-}
-
-group_exist(){
-	#check if group exist by gid 
-
-	getent group $new_gid > /dev/null 2>&1
+# function to prepare groups
+group_create(){
+	#if named group not exist
+	getent group $1 > /dev/null 2>&1
 	if [[ $? -ne 0 ]]; then
-	#if no check existence of group name
-		getent group $1 > /dev/null 2>&1
+		#check if gid is occupied
+		getent group ${new_id} > /dev/null 2>&1
+		if [[ $? -eq 0 ]]; then
+		#if yes
+		#get name of group which uses gid
+			grp_name=$(getent group ${new_id} | awk -F: '{ print $1 }')
+		#set new git for this group - higher than highest gid in system
+			max_gid=$(awk -F: '{ print $3 }' /etc/group | sort -nr | head -n 1 )
+			tmp_gid=$((max_gid+1))
+		#modify group to use new gid
+		
+			groupmod -g ${tmp_gid} ${grp_name}
+		#expected git is now not used
+		#then create wanted group
+			groupadd -g ${new_id} $1
+			
+		#if named group not exist and gid is free 
+		#create group	
+		else
+			groupadd -g ${new_id} $1
 
+		fi
+		
+	else
+	#if named group exist
+	#take her gid
+		grp_id=$(getent group $1 | awk -F: '{ print $3 }')
+	#check if wanted gid is free
+		getent group ${new_id} > /dev/null 2>&1
 		if [[ $? -ne 0 ]]; then
-	#if no, add group
-			groupadd -g $new_gid $1
-			echo "Add new group"
-
+	#if free use it
+		groupmod -g ${new_id} $1
 
 		else
-	#if named group exist - exit
-			echo "Group exist"
-			groupmod -g $new_gid $1
-			
+	#if not, get name of group which uses wanted gid
+			grp_name=$(getent group ${new_id} | awk -F: '{ print $1 }')
+	#set new git for this group - higher than highest gid in system
+			max_gid=$(awk -F: '{ print $3 }' /etc/group | sort -nr | head -n 1 )
+			tmp_gid=$((max_gid+1))
+	#modify group to use new gid
+			groupmod -g ${tmp_gid} ${grp_name}
+
+	#expected git is now not used
+	#then create wanted group
+			groupmod -g ${new_id} $1
 		fi
-
-	else
-	#if gid is occupied, change gid
-		tmp_gid=$(grep ^$1 /etc/group | cut -d: -f3)
-		#let tmp_gid+=1
-		tmp_gid=$((tmp_gid+1))
-		groupmod -g $tmp_gid $1
-
-		echo "Change group id of $1 to $tmp_gid"
-	##### jak istnieje uzytkownik pi i ma poprawna grupe, 
-	#####to zmienia sie jej numer
 	fi
 }
+
 
 
 ### get user names - space as separator
@@ -78,8 +82,6 @@ echo -n -e "${RED}Enter username(s) here:${NC} "
 read user_names
 
 ### exit if no users provided
-
-
 if [[ -z $user_names ]]; then
 	echo -e "${RED}Nothing to do here ${NC}"
 else
@@ -87,36 +89,65 @@ else
 
 	for i in $user_names; do
 		getent passwd $i > /dev/null 2>&1
-		if [[ "$?" -eq "0" ]]; then
-		echo -e "${RED}User ${GREEN}$i${RED} exist. Changing password..${NC}"
-		echo "$1" | /bin/passwd $i --stdin > /dev/null 2>&1
+		if [[ $? -eq 0 ]]; then
+			echo -e "${RED}User ${GREEN}$i${RED} exist. Changing password..${NC}"
+			echo "$1" | /bin/passwd $i --stdin > /dev/null 2>&1
 
-		#create user
-		uid_convert $i
-		if [[ $(id -u $i) -ne $new_uid ]]; then
-			usermod -u $new_uid $i
-		fi
-
-		#change group of user
-
-		gid_convert $i
-		group_switch $i
-		group_exist $i
-
-
+			id_convert $i
+			group_create $i
+		
+		#check if user has good uid
+			if [[ $(id -u $i) -ne ${new_id} ]]; then
+		#if yes exit
+				
+			
+		#if no, check if wanted uid is occupied
+				getent passwd ${new_id} > /dev/null 2>&1
+				if [[ $? -ne 0 ]]; then
+			#if free use it
+					usermod -u ${new_id} -g ${i} ${i}
+					echo -e "${GREEN}Set proper uid ${NC}"
+				else
+			#if other user uses uid
+			#get his name
+					usr_name=$(getent passwd ${i} | awk -F: '{ print $1 }')
+			#take max used uid in system
+					max_uid=$(awk -F: '{ print $3 }' /etc/passwd | sort -nr | head -n 1 )
+			#create new uid for this user
+					tmp_uid=$((max_uid+1))
+					usermod -u ${tmp_uid} ${usr_name}
+			#wanted uid is free, so use it
+					usermod -u ${new_id} -g ${i} ${i}
+					echo -e "${GREEN}Set proper uid ${NC}"
+				fi
+			fi
 
 
 		else
-
-		gid_convert $i
-		group_exist $i
-
-		uid_convert $i
-
-		useradd -u $new_uid -g $new_gid $i
-
-			echo -e "${RED}User${GREEN} $i ${RED}created ${NC}"
-			echo $1 | /bin/passwd $i --stdin > /dev/null 2>&1
+			id_convert $i
+			group_create $i
+		#user not exist
+		#check if wanted uid is occupied
+			getent passwd ${new_id} > /dev/null 2>&1
+				if [[ $? -ne 0 ]]; then
+			#if free use it
+					useradd -u ${new_id} -g ${i} ${i}
+					echo -e "${RED}User${GREEN} ${i} ${RED}created ${NC}"
+					echo $1 | /bin/passwd $i --stdin > /dev/null 2>&1
+				else
+			#if other user uses uid
+			#get his name
+					usr_name=$(getent passwd ${i} | awk -F: '{ print $1 }')
+			#take max used uid in system
+					max_uid=$(awk -F: '{ print $3 }' /etc/passwd | sort -nr | head -n 1 )
+			#create new uid for this user
+					tmp_uid=$((max_uid+1))
+					usermod -u ${tmp_uid} ${usr_name}
+			#wanted uid is free, so use it
+					useradd -u ${new_id} ${i}
+					echo -e "${RED}User${GREEN} ${i} ${RED}created ${NC}"
+					echo $1 | /bin/passwd $i --stdin > /dev/null 2>&1
+				fi
 
 		fi
 			#userdel -r $i
