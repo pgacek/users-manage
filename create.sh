@@ -22,6 +22,12 @@ id_convert(){
 
 # function to prepare groups
 group_create(){
+
+getent group $1 > /dev/null 2>&1
+group_id=$(grep $1 /etc/group | awk -F: '{ print $3 }')
+if [[ $? -ne 0 ]] || [[ ${group_id} -ne ${new_id} ]]; then
+
+
 	#if named group not exist
 	getent group $1 > /dev/null 2>&1
 	if [[ $? -ne 0 ]]; then
@@ -72,6 +78,10 @@ group_create(){
 			groupmod -g ${new_id} $1
 		fi
 	fi
+else
+	echo -e "${RED}Groups ok for user ${GREEN}$1${RED} and id ${GREEN}${new_id}${NC}"
+fi
+
 }
 
 
@@ -90,7 +100,7 @@ else
 	for i in $user_names; do
 		getent passwd $i > /dev/null 2>&1
 		if [[ $? -eq 0 ]]; then
-			echo -e "${RED}User ${GREEN}$i${RED} exist. Changing password..${NC}"
+			echo -e "${RED}User ${GREEN}${i}${RED} exist. Changing password..${NC}"
 			echo "$1" | /bin/passwd $i --stdin > /dev/null 2>&1
 
 			id_convert $i
